@@ -1,0 +1,31 @@
+This is Muesli, a library for Multiple Utility, Evaluation and Scripting Language Interfaces.
+
+   Muesli is free software: you can redistribute it and/or modify it under
+   the terms of the GNU General Public License as published by the Free
+   Software Foundation, either version 3 of the License, or (at your
+   option) any later version.
+
+   Muesli is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+   FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with Muesli.  If not, see <http://www.gnu.org/licenses/>.
+
+   This file is free documentation; the authors give unlimited permission
+   to copy, distribute and modify it.
+
+Muesli presents a generic API for calling interpreted languages from a
+C or C++ program, allowing the choice of interpreted language to be
+left until runtime.
+
+To configure and install it, you should first install the languages
+you want it to interface to.
+
+Then run Muesli's configure script.  It will report which of the
+languages it has detected.  You may need to do some of the language
+installation manually then re-run the configure script.
+
+Then run `make' and `make install'.
+

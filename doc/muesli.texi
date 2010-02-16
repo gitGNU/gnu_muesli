@@ -1,0 +1,1227 @@
+\input texinfo @c -*-texinfo-*-
+@c %**start of header
+@setfilename muesli.info
+@include version.texi
+@settitle Muesli @value{VERSION}
+@setchapternewpage odd
+@c %**end of header
+
+@copying
+This manual is for Muesli, version @value{VERSION}, a library for
+Multiple Utility, Evaluation and Scripting Languages Interface.
+
+Copyright @copyright{} 2008 Biocomputing-Developmental Systems Centre,
+University of Limerick, Ireland.
+
+Muesli was initially developed as part of the GrEvo project, which is
+funded by Science Foundation Ireland.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later versions published by the Free Software Foundation; with no
+Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.  A
+copy of the license is included in the section entitled ``GNU Free
+Documentation License''.
+@end copying
+
+@titlepage
+@title Muesli
+@subtitle Multiple Utility, Evaluation and Scripting Languages Interface
+@subtitle for version @value{VERSION}, @value{UPDATED}
+@author John C. G. Sturdy
+@c Copyright page
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@contents
+
+@ifnottex
+@node Top, Overview, (dir), (dir)
+@top Muesli
+@insertcopying
+@end ifnottex
+@menu
+* Overview::                    Purpose of Muesli and installation instructions.
+* Introduction to Muesli::      Introduction to Muesli.
+* Programming interface::       The programming interface of Muesli.
+* Languages supported::         Programming languages that Muesli supports
+* Status::                      For users as well as maintainers
+* Future plans::                Things to do
+* Examples::                    Examples of usage of Muesli.
+* FAQ::                         Frequently Asked Questions.
+* Copying This Manual::         License for copying this manual.
+* References::                  Bibliographic references.
+* Index::                       Complete index.
+
+@end menu
+
+@c =================================================================== Overview
+@node Overview, Introduction to Muesli, Top, Top
+@chapter Overview
+@cindex Overview
+
+Muesli is a library to interface an application to multiple programming
+language evaluators (normally, interpreters).
+
+@menu
+* Purpose::                     Purpose of Muesli.
+* Installation::                Installation instructions.
+@end menu
+
+@c --- Purpose ---
+@node Purpose, Installation, Overview, Overview
+@section Purpose
+
+Muesli allows your program to call any one of a number of programming
+language interpreters through a consistent interface, such that you can
+choose the language to use at run-time.
+
+It can be used anywhere where you want to use a scripting language but
+don't want to be restricted to any particular scripting language.
+
+It was originally developed to support the ``GrEvo'' Grammatical
+Evolution system, which evolves programs in any language by using a BNF
+grammar to convert bytestring chromosomes to program fragments as
+dictated by the grammar.
+
+@c --- Installation ---
+@node Installation,  , Purpose, Overview
+@section Installation
+@c @include install.texi
+
+Muesli uses the GNU autotools system for building itself, so
+installation is very conventional.  It builds into itself adaptors for
+any of its programming languages that it finds already installed when
+you configure it, so you must install the languages you want first.
+
+@enumerate
+
+@item Install the languages you want to interface to, if they are not
+already provided on your system.
+
+@item Configure the system, by typing @code{./configure} into a shell at the
+top level of the Muesli distribution tree.
+
+Inspect the output of the configure script more carefully than usual.
+You may well find that the configure script has failed to spot some of
+the languages installed.  In the author's experience, the problem is
+usually that a language interpreter library has been installed with a
+version number, without a symbolic link from the corresponding name
+without a version number.  You will have to do these manually (unless
+someone has written a library directory preener that the author is
+unaware of).  Another possible problem is something being installed in a
+non-standard directory; making a symbolic link from a standard library
+directory will fix this.  Having fixed these, re-run configure.
+
+@item Build the library, by typing @code{make}.
+
+@item As root, or using @code{sudo}, install the library by typing
+@code{make install}.
+
+@end enumerate
+
+@c ================================================= Introduction to Muesli
+@node Introduction to Muesli, Programming interface, Overview, Top
+@chapter Introduction to Muesli
+
+Muesli lets you find evaluators for programming languages (specified by
+name or by filename extension) and apply those evaluators to pieces of
+text, retrieving the results as numbers, strings or booleans.  (Arrays,
+lists and maps are not yet supported, but probably should be in later
+versions.)
+
+Muesli is a C library, so it should be possible to link it with programs
+written in a variety of languages.
+
+Some assumptions about, and support for, applications, are built into
+Muesli.
+
+It supports:
+
+@itemize
+
+@item an option-handling mechanism, possibly compatible with @samp{getopt}
+
+@item a block of parameters, set by the option-handling mechanism
+
+@item a block of application-specific data
+
+@end itemize
+
+Muesli provides some support for extending the languages to which it
+interfaces.  (It is not, however, a wrapper generator.)  Some extensions
+are provided as part of the system.
+
+@c ====================================================== Programming interface
+@node  Programming interface, Languages supported, Introduction to Muesli, Top
+@comment  node-name,  next,  previous,  up
+@chapter Programming interface
+
+The interface to Muesli is a collection of C functions, along with some
+necessary type definitions.
+
+@menu
+* Initialization::              Setting up Muesli
+* Adding extensions::           Connecting to your application
+* Accessing evaluators::        Finding language interfaces
+* Evaluating code::             Calling evaluators on strings
+* Loading files::               Calling evaluators on filenames
+* Extension functions::         Muesli functions scripts can call
+* Interactive use::             Read-eval-print loops
+* Listing and querying::        Finding which languages are present
+* Testing::                     Checking it all works
+@end menu
+
+@node  Initialization, Adding extensions, Programming interface, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Initialization
+
+To initialize Muesli, your application has to call
+
+@verbatim
+void
+muesli_register_evaluators(void *new_app_params,
+                           void *new_app_data,
+                           option_handler_t params_handler,
+                           struct option *getopt_options)
+@end verbatim
+
+@samp{new_app_params} is a pointer to a structure describing the
+command-line options given to your application, if you are putting them
+in such a structure.  @samp{new_app_data} is a pointer to the root data
+structure of your application, if it has one.  These are used for
+passing information to built-in procedures of the interpreters to which
+Muesli interfaces, including particularly any such procedures that you
+add for accessing your data.  You don't have to work this way; you can
+keep your settings and data in lots of separate globals, and Muesli will
+not object.
+
+@samp{params_handler} is a function for setting and getting parameters
+such as those set on the command line or from a settings menu.
+@xref{Parameter control}.
+
+@samp{getopt_options} is a long options structure as used by
+@samp{getopt}.
+
+@node  Adding extensions, Accessing evaluators, Initialization, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Adding your extensions
+
+Typically, users of Muesli may want to add extra functions to each
+interpreter.  To do this, call
+
+@verbatim
+void
+muesli_set_evaluator_app_specializer(char *evaluator_name,
+                                     evaluator_specializer_t
+                                          specializer)
+@end verbatim
+
+You can do this any time until you access the evaluator using
+@samp{get_named_evaluator}.  The type @samp{evaluator_specializer_t}
+describes a function which takes an @samp{evaluator_interface} structure
+as its argument, and extends the evaluator that that points to.
+
+The evaluator-independent macros @samp{Muesli_Add_Fn_0} to
+@samp{Muesli_Add_Fn_5} are available for adding ordinary functions to
+your evaluator interface.  These functions, of course, must be
+evaluator-specific; we have simply abstracted out the action of defining
+a new builtin function.  @samp{Muesli_Add_Fn_V} adds a builtin taking a
+variable number of arguments, and @samp{Muesli_Add_Fn_N} adds one that
+does not evaluate its arguments (like a `special form' in Lisp).
+
+@node  Accessing evaluators, Evaluating code, Adding extensions, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Accessing evaluators
+
+Having done this, you can get an @samp{evaluator_interface} structure
+for the language you want by calling
+
+@verbatim
+evaluator_interface *
+muesli_get_named_evaluator(const char *evaluator_name,
+                           int exit_if_not_found)
+@end verbatim
+
+This does any initialization needed for the underlying interpreter.
+
+To get the name of an evaluator corresponding to a filename extension,
+you can call
+
+@verbatim
+const char
+*muesli_get_language_by_extension(const char *extension)
+@end verbatim
+
+@node  Evaluating code, Loading files, Accessing evaluators, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Evaluating code fragments
+
+Having got an @samp{evaluator_interface}, you can evaluate things with
+it, by calling
+
+@verbatim
+result_type =
+    (my_evaluator->eval_string)(my_evaluator->eval_string,
+                                const char *program_fragment,
+                                unsigned int fragment_length,
+                                eval_result_t *result_p,
+                                int transient);
+@end verbatim
+
+where the result type is as declared in
+
+@verbatim
+typedef enum {
+  no_result,
+  number_result,
+  string_result,
+  boolean_result,
+  error_result
+} result_type_t;
+@end verbatim
+
+and the result is of type
+
+@verbatim
+typedef union {
+  float as_number;
+  const char *as_string;
+  int as_int;
+  int as_bool;
+} eval_result_t;
+@end verbatim  
+
+The fragment length is passed in as a separate argument, as Muesli does
+not assume that languages treat a null byte as a string terminator.  In
+practice, many of the language implementations ignore this, and treat
+the program fragment as null-terminated anyay.
+
+@samp{transient} is a boolean, which if true indicates that the
+evaluation is not expected to have any side-effects.  This may let the
+interpreter optimize it (by marking its memory allocation configuration,
+and returning to that configuration afterwards, avoiding garbage
+collection if possible).  This is aimed at evaluation of individuals in
+Genetic Programming systems, which was the original application of
+Muesli.
+
+For convenience, we also provide
+
+@verbatim
+result_type_t
+muesli_eval_in_language(const char *language,
+		        const char *fragment,
+		        unsigned int fragment_length,
+		        eval_result_t *result_p,
+		        int transient)
+@end verbatim
+
+This finds the necessary evaluator (initializing it if necessary) and
+applies it, without your program needing to hang on to evaluator
+structures.
+
+@node  Loading files, Extension functions, Evaluating code, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Loading files
+
+To load a file using an evaluator interface, call
+
+@verbatim
+  (my_evaluator->load_file)(my_evaluator, filename);
+@end verbatim
+
+To load a file by its extension, without having to find the evaluator
+interface yourself, you can call
+
+@verbatim
+void muesli_load_file(const char *filename)
+@end verbatim
+
+This will analyze the filename and work out which evaluator to use.
+
+@node  Extension functions, Interactive use, Loading files, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Extension built-in functions
+
+Muesli extends each of its languages (except for those using separate
+processes) with a few extra built-in functions, for parameter control
+and for access to Muesli's own evaluation facilities.  These extra
+functions can be used in programs / scripts in the interpreted
+languages.
+
+Where their names are built from several natural-language words, the
+conventions of that programming language are followed for combining them
+into an identifier.  For example, `set parameter' becomes
+@samp{set-parameter} in Lisp-type languages, @samp{SetParameter} or
+@samp{setParameter} in CamelCasing languages, and @samp{set_parameter}
+in other languages.
+
+@menu
+* Parameter control::           Setting and getting parameters
+* Calling special evaluators::  Access to other languages
+@end menu
+
+@node  Parameter control, Calling special evaluators, Extension functions, Extension functions
+@comment  node-name,  next,  previous,  up
+@subsection Parameter control
+
+Muesli provides a language-neutral interface to your application's
+parameter settings (typically those parameters that can be set as
+command-line options or through a preferences dialog).  This allows you
+to provide scripted access to parameters without having to write an
+interface for each scripting language.
+
+When you initialize Muesli (@pxref{Initialization}), you can pass in an
+option handler function, which is part of your application, defined
+thus:
+
+@verbatim
+typedef int (*option_handler_t)(void *params_block,
+				char opt,
+				char *value_string,
+                                float value_number,
+				int set,
+				result_type_t *result_type,
+				eval_result_t *result_p,
+				char *from_language);
+@end verbatim
+
+@samp{params_block} is a structure defined by your application.
+@samp{opt} is an option character (as used by @samp{getopt}),
+@samp{value_string} is the value given for the option (and
+@samp{value_number} is the value as a number if appropriate, in which
+case @samp{value_string} should be @samp{NULL}), and @samp{set} tells
+whether to set (otherwise, get) the option.
+
+@samp{result_type} indicates which type of result is returned through
+the result pointer @samp{result_p}, and @samp{from_language} should be
+the name of the programming language from which the option is being set.
+It should be NULL when not being called from an interpreter (for
+example, when called when parsing the command line).  This is partly so
+that you can insist on an option being given only once on the command
+line, while allowing it to be changed later from a script, and partly so
+that if some of your parameters hold scripting fragments, you can arrange
+for your system to know which language they are in, by assuming it is
+the same language from which the parameter was set.
+
+Such an option handler function will typically be a wrapping around
+something that calls @samp{getopt} and does a @samp{switch} statement
+using the result.  It should generally be possible to use the same
+function from your application's command line argument parser, thus
+making the same options available on the command line and through all
+available scripting languages, without having to write a separate option
+setting function for each programming language.
+
+You can then access your embedding application's parameters from a script through
+the Muesli API functions @samp{muesli_set_parameter} and
+@samp{muesli_get_parameter} which are wrapped as builtin extension
+functions in each interfaced language.  (A few languages cannot do this,
+for example the pipe connection to an external program.)  These
+functions appear as @samp{(set-parameter @var{param} @var{value})} and
+@samp{(get-parameter @var{param})} in Lisp-style languages,
+@samp{SetParameter(@var{parameter}, @var{value})} and
+@samp{GetParameter(@var{parameter})} in CamelCasing languages, and
+@samp{set_parameter(@var{parameter}, @var{value})} and
+@samp{get_parameter(@var{parameter})} in other languages.
+
+Languages with table, hash, map, dictionary or other associative array
+data types may also implement extension functions to return all
+parameters as a table, and to modify multiple parameters from a table.
+These functions will be called @samp{parameters} and @samp{modify
+parameters} in the syntax appropriate for that language.
+
+@node  Calling special evaluators,  , Parameter control, Extension functions
+@comment  node-name,  next,  previous,  up
+@subsection Calling special evaluators
+
+Just as your application can use Muesli to call code fragments in a
+variety of languages, those fragments can use Muesli likewise, through
+wrappings of the function @samp{muesli_eval_in_language}, which appear
+as @samp{(eval-in-language @var{language} @var{script})},
+@samp{eval_in_language(@var{language}, @var{script})}, or
+@samp{EvalInLanguage(@var{language}, @var{script})} according to the
+syntax of the calling language.
+
+@node  Interactive use, Listing and querying, Extension functions, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Interactive use
+
+@node  Listing and querying, Testing, Interactive use, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Listing and querying
+
+The function
+
+@verbatim
+void
+muesli_print_interpreter_names(FILE *stream,
+                               const char *format,
+                               const char *selected_name,
+                               const char *selected_flag);
+@end verbatim
+
+will list the interpreter names to @var{stream} using @var{format}.  If
+@var{selected_name} is non-NULL, if one of the names is equal to that,
+@var{selected_flag} is printed after it if there is a second @samp{%s}
+in the format (or the string @samp{" (selected)"} is used of
+@var{selected_flag} is NULL).
+
+If you just want to check whether a particular language is supported on
+your system, you can call
+
+@verbatim
+int muesli_evaluator_is_defined(const char *evaluator_name)
+@end verbatim
+
+
+@node  Testing,  , Listing and querying, Programming interface
+@comment  node-name,  next,  previous,  up
+@section Testing
+
+You can test the installation by calling this function from a program:
+
+@verbatim
+int test_evaluators(int seconds);
+@end verbatim
+
+This evaluates a simple expression in each language for the given number
+of seconds, and reports back how many times it evaluated the expression
+for each language.  (The expressions are all the same calculation,
+expressed in the relevant syntax for each language.)  If the number of
+seconds is zero (or less), it does a one-off test of each evaluator.
+
+@c ======================================================== Languages supported
+@node  Languages supported, Status, Programming interface, Top
+@comment  node-name,  next,  previous,  up
+@chapter Languages supported
+
+Muesli's language interfaces are in a range of stages of implementation
+(initially according to the needs of the project from which Muesli was
+split).
+
+@multitable {Language} {Muesli name} {Statusnow} {Comment goes on and on as needed}
+@item
+SIOD
+@tab @samp{siod}
+@tab Complete.
+@tab A small Scheme interpreter (Scheme In One Day), available from
+@url{http://people.delphiforums.com/gjc/siod.html}, or in an extended
+version from @url{?}
+@item
+Lua
+@tab @samp{lua}
+@tab Moderate.
+@tab @url{http://www.lua.org/}
+Needs readline, ncurses libraries.
+@item
+Tcl
+@tab @samp{tcl}
+@tab Sketchy
+@tab Tool Control Language, available from @url{http://www.tcl.tk/doc/}
+@item
+Perl
+@tab @samp{perl}
+@tab Not ready
+@tab See @url{http://www.perl.com/pub/q/documentation}
+@item
+Python
+@tab @samp{python}
+@tab Placeholder
+@tab The Python language
+@c todo list Ruby too
+@item
+libtcc
+@tab @samp{tcc}
+@tab Not ready
+@tab Tiny C Compiler, available from @url{http://www.tinycc.org/}
+@item
+Octave
+@tab @samp{octave}
+@tab Complete
+@tab The Octave maths language
+@item
+Slang
+@tab @samp{slang}
+@tab Placeholder
+@tab Slang
+@item
+Parrot
+@tab @samp{parrot}
+@tab Placeholder
+@tab Execute Parrot bytecodes
+@item
+JVM
+@tab @samp{jvm}
+@tab Placeholder
+@tab Execute JVM bytecodes
+@item
+Prolog
+@tab @samp{prolog}
+@tab Placeholder
+@tab The Programming in Logic language.
+@item
+pipe
+@tab @samp{pipe}
+@tab Probably complete
+@tab This evaluator starts up a program in another process with pipes to and from it, and
+sends the strings to evaluate to it and gets the result from it.
+@item
+exec
+@tab @samp{exec}
+@tab Complete
+@tab Execs an external program, and reads its result from its stdout.
+@item
+stack-bytecode
+@tab @samp{stack-code}
+@tab Complete
+@tab A fast and light byte-coded stack interpreter built into Muesli.
+@item
+machine-code
+@tab @samp{machine}
+@tab Complete
+@tab Calls blocks of machine code directly.
+@item
+custom
+@tab @samp{custom}
+@tab Template
+@tab A stub interface for the application programmer to use as the base
+for a custom interface (e.g. to special hardware, or to a neural network
+emulator); may also be used as the template for new language interfaces.
+@item
+zero
+@tab @samp{zero}
+@tab Complete
+@tab Always returns @code{0}.  This is the @code{evaluator_interface}
+equivalent of @file{/dev/null}.  It's extremely fast, so we use it as
+the baseline for timing tests of the other evaluators.
+@end multitable
+
+Detailed notes on each language interface follow, including information
+about what has been done and what still needs to be done on each.
+
+@menu
+* SIOD::                        Scheme In One Day
+* Lua::                         Lua
+* Tcl::                         Tool Command Language
+* Perl::                        Perl
+* Python::                      Python
+* JavaScript::                  JavaScript / ECMAscript
+* tcc::                         Tiny C Compiler
+* Octave::                      Octave
+* S-lang::                      S-Lang
+* Prolog::                      SWI Prolog
+* GhostScript::                 PostScript clone
+* pipe::                        Pipe to another process
+* exec::                        Run a program
+* Binary languages::            Non-textual programs
+* custom::                      Custom interfaces
+@end menu
+
+@node  SIOD, Lua, Languages supported, Languages supported
+@comment  node-name,  next,  previous,  up
+@section SIOD
+
+SIOD is usually the most complete of our interfaces, as it was the
+first, and is also de-facto the main scripting language for Muesli's
+original application.  This is probably the best place to look for
+reference when adding or completing further language interfaces.
+
+Rather than using the original distribution of SIOD, we recommend that
+you use our lightly modified one, ULSIOD (University of Limerick SIOD),
+which has all its internal functions renamed to start with the prefix
+@samp{siod_}.  This avoids clashes with names in other evaluators.  (The
+one we first hit was @samp{load}, which is also defined in tcc.)
+
+@menu
+* Why no Guile?::               Why Guile was not so easy to include
+@end menu
+
+@node  Why no Guile?,  , SIOD, SIOD
+@comment  node-name,  next,  previous,  up
+@subsection Why no Guile?
+
+There should probably be an interface to Guile, too, and possibly some
+other Scheme implementations.  The auther was originally going to use
+Guile, but at the time its configure script was broken, and the author
+picked SIOD as it was quick to get started on.
+
+SIOD is also very much smaller than Guile, and it doesn't take long to
+find one's way around the source.
+
+Further investigation of libguile found that Guile wants one of its
+stack frames to be between the real @code{main} and your
+@code{main}-like function, and so is not amenable to as simple inclusion
+as other scripting libraries: it needs to be written into the
+application at the start.  The documentation makes it look as though the
+reason for this is quite deep, connected with the garbage collector
+looking at stack frames.  If this turns out to be true (and I have yet
+to investigate the code deeply enough) it will not be possible to
+integrate it fully into Muesli.
+
+@node  Lua, Tcl, SIOD, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Lua
+
+The Lua interface is reasonably complete.
+
+There are exciting possibilities for further work, using the language's
+`meta-tables' feature to make the table returned by the
+@samp{parameters} builtin be `live' data, so that if the script using it
+changes it, the parameters in the application are set accordingly by
+calling @samp{set_parameter}.
+
+@node  Tcl, Perl, Lua, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Tcl
+
+The Tcl interface lacks the bulk parameter mechanisms.
+
+@node  Perl, Python, Tcl, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Perl
+
+The Perl interface isn't complete.  Understanding of how to embed Perl
+and also extend it is needed, and I haven't yet got that.  The current
+attempt insists on reading something from standard input as it starts.
+
+@node  Python, JavaScript, Perl, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Python
+
+Interface now being worked on.  It's written, but crashes in the parser.
+
+@node  JavaScript, tcc, Python, Languages supported
+@comment  node-name,  next,  previous,  up
+@section JavaScript
+
+Not yet supported.  Will use the Mozilla SpiderMonkey interpreter.
+
+@node  tcc, Octave, JavaScript, Languages supported
+@comment  node-name,  next,  previous,  up
+@section tcc
+
+The tcc interface isn't complete, and needs some more thought, as tcc
+works differently from normal interpreters: each time it is called to
+evaluate some code, a new instance of tcc is created.  This spoils our
+assumption that you can pre-load your language with useful functions
+from a file, ready to call from your code fragments.  There's sure to be
+a way round this, I just haven't had the time to do so.
+
+@node  Octave, S-lang, tcc, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Octave
+
+Supported.  Uses Octave `structures' for multiple parameters.
+
+@node  S-lang, Prolog, Octave, Languages supported
+@comment  node-name,  next,  previous,  up
+@section S-lang
+
+Not yet supported.
+
+@node  Prolog, GhostScript, S-lang, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Prolog
+
+Not yet supported.
+
+@node  GhostScript, pipe, Prolog, Languages supported
+@comment  node-name,  next,  previous,  up
+@section GhostScript
+
+Not yet supported.
+
+@node  pipe, exec, GhostScript, Languages supported
+@comment  node-name,  next,  previous,  up
+@section pipe
+
+Cantakerous.  Also needs extra information, to determine the program to
+connect to, which is part of the @samp{evaluator_interface} structure,
+as follows:
+
+@verbatim
+  char *underlying_program;
+  char *underlying_startup_string;
+  char *underlying_prompt_string;
+@end verbatim
+
+The @samp{pipe} evaluator starts an external program, named by
+@samp{piped_program}, connected to Muesli by a pair of pipes, and sends
+each individual to it, and reads the returning bytestream to find a
+number, which is used as the result.
+
+This is intended to allow external language systems, such as SBCL
+(Common Lisp) to be used for the evaluator; but it could be used in
+other ways; any program that reads pieces of text and replies with
+numbers could be used.
+
+The program should output its result onto standard output.  Muesli
+searches the program's output for an occurrence of its
+@samp{underlying_prompt_string} if one is given, then takes the first number
+read after that.
+
+You only need set a @samp{underlying_prompt_string} if the application outputs
+any numbers before the actual result.  You can also set a
+@samp{pipe-startup_string}, which is searched for when the application
+starts.  You need to do this if, and only if, the application outputs
+either any numbers, or any occurrences of the @samp{underlying_prompt_string},
+during its startup.
+
+@node  exec, Binary languages, pipe, Languages supported
+@comment  node-name,  next,  previous,  up
+@section exec
+
+The @samp{exec} evaluator splits the text of the code fragment into
+separate arguments at whitespace (quotes may be used to include
+whitespace in an argument), and runs the first item listed, as an
+external program.
+
+The program should output its score onto standard output, as the first
+number it outputs within the first 1024 bytes of output (any further
+output is ignored).
+
+This version of Muesli execs the given filename directly, and does not
+search @env{$PATH}.  It would probably be good to use the path in later
+versions.
+
+@node  Binary languages, custom, exec, Languages supported
+@comment  node-name,  next,  previous,  up
+@section Binary languages
+
+Most of the languages supported by Muesli are conventional, textual,
+programming languages, in which program fragments are typically
+human-readable ASCII strings.
+
+For faster evaluation of code fragments, Muesli also provides `binary'
+evaluators, whose languages are not textual.  They are provided because
+Muesli was originally written to support an evolutionary programming
+system, which has the option of producing machine code or bytecodes for
+speed.
+
+The `binary' evaluators need to have any arguments passed to them by
+special means, as they cannot be embedded using @samp{snprintf} as is
+possible for textual evaluators.
+
+As well as the actual binary evaluators, Muesli provides a half-way
+house, called `stack code', which is a simple byte-code stack-based
+interpreted language in which all the bytecodes are printable ASCII
+characters and generally have some mnemonic value.  This is meant as a
+stand-in for machine code while developing the areas of the application
+that normally work with Muesli and machine code.
+
+@menu
+* stack-code::                  A simple byte-code stack machine
+* machine::                     Real machine code
+* Parrot::                      The byte-code interpreter for Perl6 and Python
+* JVM::                         The byte-code interpreter for Java
+@end menu
+
+@node  stack-code, machine, Binary languages, Binary languages
+@comment  node-name,  next,  previous,  up
+@subsection stack-code
+
+The stack-based bytecode evaluator is one written specially for Muesli's
+parent application GrEvo, and is designed to be very fast, very simple,
+and to have a lot in common with the machine-code evaluator.  (In fact
+it was originally written to exercise the parts of the system
+surrounding machine-code evaluation, before using actual machine-code.)
+
+Each character in the program string is an instruction.  Whitespace
+characters are no-ops.
+
+@multitable {A-Z} {Action, that is, what this command does, explained in words}
+@item @samp{a-z}
+@tab Push a number, 0..25 respectively, onto the stack, typically
+     for use as a register number or function number
+@item @samp{<}
+@tab Pop a register number, then pop a value into that register
+@item @samp{>}
+@tab Pop a register number, then push the contents of that register
+@item @samp{=}
+@tab Duplicate the top item of the stack
+@item @samp{_}
+@tab Pop an item from the stack
+@item @samp{:}
+@tab Exchange the top two items of the stack
+@item @samp{+}
+@tab Take two numbers from the stack, and push their sum
+@item @option{-}
+@tab Take two numbers from the stack, and push their difference
+@item @samp{*}
+@tab Take two numbers from the stack, and push their product
+@item @samp{/}
+@tab Take two numbers from the stack, and push the second divided by
+     the first
+@item @samp{\}
+@tab Take two numbers from the stack, and push the first divided by
+     the second
+@item @samp{&}
+@tab Take two numbers from the stack as booleans (0.0 is false,
+     anything else is true) and push their conjunction (`and' function)
+@item @samp{|}
+@tab Take two numbers from the stack as booleans (0.0 is false,
+     anything else is true) and push their disjunction (`or' function)
+@item @samp{~}
+@tab Take one number from the stack as a boolean (0.0 is false,
+     anything else is true) and push its negation (`not' function)
+@item @samp{!}
+@tab Execute a numbered function (see separate table, below)
+@item @samp{.}
+@tab Return from the program, returning the value on the top of the
+stack
+@item @samp{#}
+@tab Skip until the next newline character.  This is a way of inserting
+     comments into your stack-code program, but with cost at run-time.
+@end multitable
+
+The following table lists the functions callable through the @samp{!}
+operator, and the initial values of registers (the other registers
+start with 0.0 in them).
+
+@multitable {00} {A} {Action, that is, what it does} {Register initial value}
+@item 0
+@tab @samp{a}
+@tab Atan
+@item 2
+@tab @samp{c}
+@tab Cos
+@item 3
+@tab @samp{d}
+@tab acos
+@item 4
+@tab @samp{e}
+@tab exp
+@tab e
+@item 11
+@tab @samp{l}
+@tab Log
+@item 14
+@tab @samp{o}
+@tab
+@tab 1.0 (one)
+@item 15
+@tab @samp{p}
+@tab
+@tab pi
+@item 17
+@tab @samp{r}
+@tab
+@tab sqrt(2)
+@item 18
+@tab @samp{s}
+@tab Sin
+@item 19
+@tab @samp{t}
+@tab Tan
+@tab 2.0 (two)
+@item 20
+@tab @samp{u}
+@tab atan2
+@item 21
+@tab @samp{v}
+@tab asin
+@end multitable
+
+There is a mechanism by which you can add to, or replace, these
+functions, but that currently requires C programming (a call to
+@samp{stack_bytecode_add_app_fn}).  Most of the built-in ones are
+inlined into the stack-code interpreter, and as the stack-code
+interpreter is a single C function, written for speed, this is probably
+the next-best to machine code for speed.
+
+@node  machine, Parrot, stack-code, Binary languages
+@comment  node-name,  next,  previous,  up
+@subsection machine
+
+@node  Parrot, JVM, machine, Binary languages
+@comment  node-name,  next,  previous,  up
+@subsection Parrot
+
+Not yet supported.
+
+@node  JVM,  , Parrot, Binary languages
+@comment  node-name,  next,  previous,  up
+@subsection JVM
+
+Not yet supported.
+
+@node  custom,  , Binary languages, Languages supported
+@comment  node-name,  next,  previous,  up
+@section custom
+
+The @samp{custom} evaluator interface doesn't contain an evaluator: it
+is just a stub interface for you to fill in with your own evaluator.
+
+Possible applications of this include interfacing to neural nets, or to
+special hardware.
+
+You can also use it as a template for starting a new language interface.
+
+Anyway, if you want to be doing this kind of stuff, you'll be working on
+the source code, so should be reading the source, @file{muesli-custom.c}
+(which is commented), not the documentation, so that's the end of this
+documentation section.
+
+@node  Status, Future plans, Languages supported, Top
+@comment  node-name,  next,  previous,  up
+@chapter Status
+
+This chapter gives the status of each language implementation, so you
+can see which features you should expect to work in each language.  It's
+also for use by the maintainers, to see what still needs to be done.
+
+In the following table, the columns are:
+
+@multitable {Code} {explanation of code for the rest of the lnie}
+@item
+Init
+@tab Initialize
+@item
+Eval
+@tab Evaluate string
+@item
+Load
+@tab Load file
+@item
+Param
+@tab
+Set / Get parameters singly
+@item
+Params
+@tab Set / Get parameters to / from table
+@item
+EvLang
+@tab Evaluate in (other) language
+@item
+Cus
+@tab Call custom evaluator
+@end multitable
+
+@multitable {Languagenm} {Init} {Eval} {Load} {Param} {Params} {EvLang} {Cus}
+@item
+Name
+@tab Init
+@tab Eval
+@tab Load
+@tab Param
+@tab Params
+@tab EvLang
+@tab Cus
+@item
+@code{siod}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab Y                          @c 1p
+@tab Y                          @c Ps
+@tab Y                          @c EL
+@tab Y                          @c CS
+@item
+@code{lua}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab Y                          @c 1p
+@tab Y                          @c Ps
+@tab Y                          @c EL
+@tab Y                          @c CS
+@item
+@code{tcl}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab Y                          @c 1p
+@tab ?                          @c Ps
+@tab -                          @c EL
+@tab Y                          @c CS
+@item
+@code{perl}
+@tab ?                          @c In
+@tab Y                          @c Ev
+@tab -                          @c LF
+@tab Y                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab Y                          @c CS
+@item
+@code{python}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab Y                          @c 1p
+@tab Y                          @c Ps
+@tab Y                          @c EL
+@tab Y                          @c CS
+@item
+@code{tcc}
+@tab -                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{octave}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab Y                          @c 1p
+@tab Y                          @c Ps
+@tab Y                          @c EL
+@tab Y                          @c CS
+@item
+@code{slang}
+@tab -                          @c In
+@tab -                          @c Ev
+@tab -                          @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{parrot}
+@tab -                          @c In
+@tab -                          @c Ev
+@tab -                          @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{jvm}
+@tab -                          @c In
+@tab -                          @c Ev
+@tab -                          @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{prolog}
+@tab -                          @c In
+@tab -                          @c Ev
+@tab -                          @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{pipe}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab n/a                        @c 1p
+@tab n/a                        @c Ps
+@tab n/a                        @c EL
+@tab n/a                        @c CS
+@item
+@code{exec}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab n/a                        @c LF
+@tab n/a                        @c 1p
+@tab n/a                        @c Ps
+@tab n/a                        @c EL
+@tab n/a                        @c CS
+@item
+@code{stack-code}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab Y                          @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{machine}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab n/a                        @c LF
+@tab -                          @c 1p
+@tab -                          @c Ps
+@tab -                          @c EL
+@tab -                          @c CS
+@item
+@code{custom}
+@tab U                          @c In
+@tab U                          @c Ev
+@tab U                          @c LF
+@tab U                          @c 1p
+@tab U                          @c Ps
+@tab U                          @c EL
+@tab n/a                        @c CS
+@item
+@code{zero}
+@tab Y                          @c In
+@tab Y                          @c Ev
+@tab n/a                        @c LF
+@tab n/a                        @c 1p
+@tab n/a                        @c Ps
+@tab n/a                        @c EL
+@tab n/a                        @c CS
+@end multitable
+
+@c =============================================================== Future plans
+@node  Future plans, Examples, Status, Top
+@comment  node-name,  next,  previous,  up
+@chapter Planned further work
+
+Fill in all the bits not yet done in the `status' table.
+
+Re-arrange ``exec'' evaluator to have more in common with ``pipe'', such
+as using the ''underlying_*'' fields to specify the program (using
+my_argv[0] only if underlying_program is not defined); also filter
+output in a similar manner.
+
+Write a caching evaluator which memoizes on top of an arbitrary other
+muesli evaluator, using the underlying_program field to specify which
+that evaluator is.
+
+Use more efficient access to SIOD evaluator --- we are currently going
+through their REPL.
+
+Make sure we work alongside SWIG.
+
+Allow extra evaluators to be added while running.
+
+Write GNUemacs source file to allow GNUemacs to call other languages and
+to add an Emacs-Lisp evalautor interface to muesli so the other languaes
+can call back into Emacs.
+
+@c =================================================================== Examples
+@node Examples, FAQ, Future plans, Top
+@chapter Examples
+@cindex Examples
+
+An annotated example application is provided in the distribution, in the
+source file @file{muesli-demo.c}.
+
+@c ======================================================================== FAQ
+@node FAQ, Copying This Manual, Examples, Top
+@appendix Frequently Asked Questions
+@cindex FAQ
+@cindex Frequently Asked Questions
+
+@c ======================================================== Copying This Manual
+@node Copying This Manual, References, FAQ, Top
+@appendix Copying This Manual
+
+@include fdl.texi
+
+@c ================================================================= References
+@node References, Index, Copying This Manual, Top
+@appendix References
+
+@c ====================================================================== Index
+@node Index,  , References, Top
+@unnumbered Concept Index
+@printindex cp
+
+@unnumbered Function Index
+@printindex fn
+
+@bye
+
